@@ -12,7 +12,7 @@ A lightweight ADB control panel built with Python + Tkinter.
 - Dark theme UI
 - Windows Support Coming Soon
 
- <img src="https://raw.github.com/dfuse06/DFUSE-ADB-GUI/main-ui.png">
+<img src="https://raw.githubusercontent.com/dfuse06/DFUSE-ADB-GUI/main/main-ui.png">
 
 ## 🚀 Run
 ```bash
