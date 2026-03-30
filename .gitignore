@@ -10,5 +10,5 @@ dist/
 # OS junk
 .DS_Store
 
-# ADB binaries (optional)
+# ADB binaries 
 platform-tools/
