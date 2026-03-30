@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+
+# Build files
+build/
+dist/
+*.spec
+
+# OS junk
+.DS_Store
+
+# ADB binaries (optional)
+platform-tools/
