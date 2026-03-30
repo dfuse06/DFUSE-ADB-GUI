@@ -11,4 +11,3 @@ dist/
 .DS_Store
 
 # ADB binaries 
-platform-tools/
