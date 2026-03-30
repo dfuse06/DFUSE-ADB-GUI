@@ -14,8 +14,8 @@ A lightweight ADB control panel built with Python + Tkinter.
 
  <img src="https://raw.github.com/dfuse06/DFUSE-ADB-GUI/main-ui.png">
 
-
 ## 🚀 Run
 ```bash
 python3 main.py
+
 
