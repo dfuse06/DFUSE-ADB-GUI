@@ -35,18 +35,31 @@ def get_platform_tools_dir() -> str:
 
 
 def get_adb_path() -> str:
+    """
+    Prefer the bundled platform-tools adb if the app downloaded it.
+
+    Google's platform-tools zip extracts like this:
+        platform-tools/adb
+        platform-tools/fastboot
+
+    It does NOT extract to platform-tools/linux/adb, so this fixes
+    the broken path after Install/Update ADB runs.
+    """
     base = get_platform_tools_dir()
 
-    if sys.platform.startswith("linux"):
-        return os.path.join(base, "linux", "adb")
+    if sys.platform.startswith("linux") or sys.platform == "darwin":
+        bundled_adb = os.path.join(base, "adb")
+        if os.path.exists(bundled_adb):
+            return bundled_adb
+        return shutil.which("adb") or "adb"
 
     if sys.platform.startswith("win"):
-        return os.path.join(base, "windows", "adb.exe")
+        bundled_adb = os.path.join(base, "adb.exe")
+        if os.path.exists(bundled_adb):
+            return bundled_adb
+        return shutil.which("adb.exe") or shutil.which("adb") or "adb.exe"
 
-    if sys.platform == "darwin":
-        return os.path.join(base, "mac", "adb")
-
-    return "adb"
+    return shutil.which("adb") or "adb"
 
 def detect_platform_tools_url() -> str:
     if sys.platform.startswith("linux"):
@@ -139,6 +152,13 @@ def clear_output() -> None:
     show_output("")
 
 
+def refresh_adb_path_label() -> None:
+    try:
+        adb_path_label.config(text=f"ADB Path: {get_adb_path()}")
+    except NameError:
+        pass
+
+
 def styled_button(parent, text, command, width=16):
     return tk.Button(
         parent,
@@ -216,7 +236,7 @@ def install_apk() -> None:
 
     def task():
         safe_ui(show_output, f"Installing APK...\n{apk_path}\n")
-        result = run_adb_command(["install", apk_path], timeout=300)
+        result = run_adb_command(["install", "-r", apk_path], timeout=300)
         safe_ui(append_output, result)
 
     run_in_thread(task)
@@ -247,10 +267,10 @@ def get_device_ip() -> None:
 # ADB updater
 # ---------------------------
 
-def update_platform_tools() -> None:
+def install_or_update_adb(action: str = "Install / Update") -> None:
     def task():
         try:
-            safe_ui(show_output, "Checking for latest platform-tools...\n")
+            safe_ui(show_output, f"{action} ADB platform-tools...\n")
 
             url = detect_platform_tools_url()
             base_path = get_base_path()
@@ -302,14 +322,23 @@ def update_platform_tools() -> None:
             start_result = run_adb_command(["start-server"])
             version_result = run_adb_command(["version"])
 
-            safe_ui(append_output, "Update complete.\n")
+            safe_ui(refresh_adb_path_label)
+            safe_ui(append_output, f"{action} complete.\n")
             safe_ui(append_output, start_result + "\n")
             safe_ui(append_output, version_result)
 
         except Exception as e:
-            safe_ui(append_output, f"Update failed:\n{e}")
+            safe_ui(append_output, f"{action} failed:\n{e}")
 
     run_in_thread(task)
+
+
+def install_adb() -> None:
+    install_or_update_adb("Install")
+
+
+def update_adb() -> None:
+    install_or_update_adb("Update")
 
 
 # ---------------------------
@@ -704,7 +733,7 @@ def pair_using_qr_popup() -> None:
 
 root = tk.Tk()
 root.title("DFUSE ADB GUI")
-root.geometry("1180x860")
+root.geometry("1280x880")
 root.configure(bg=BG_COLOR)
 
 header = tk.Frame(root, bg=BG_COLOR)
@@ -718,13 +747,14 @@ tk.Label(
     font=("Arial", 20, "bold")
 ).pack(anchor="w")
 
-tk.Label(
+adb_path_label = tk.Label(
     header,
     text=f"ADB Path: {get_adb_path()}",
     bg=BG_COLOR,
     fg=MUTED_TEXT,
     font=("Arial", 10)
-).pack(anchor="w", pady=(2, 0))
+)
+adb_path_label.pack(anchor="w", pady=(2, 0))
 
 top_buttons = tk.Frame(root, bg=BG_COLOR)
 top_buttons.pack(fill="x", padx=10, pady=8)
@@ -732,11 +762,12 @@ top_buttons.pack(fill="x", padx=10, pady=8)
 styled_button(top_buttons, "ADB Version", adb_version, 14).grid(row=0, column=0, padx=4, pady=4)
 styled_button(top_buttons, "List Devices", list_devices, 14).grid(row=0, column=1, padx=4, pady=4)
 styled_button(top_buttons, "Restart ADB", restart_adb, 14).grid(row=0, column=2, padx=4, pady=4)
-styled_button(top_buttons, "Update ADB", update_platform_tools, 14).grid(row=0, column=3, padx=4, pady=4)
-styled_button(top_buttons, "Install APK", install_apk, 14).grid(row=0, column=4, padx=4, pady=4)
-styled_button(top_buttons, "Device Info", device_info, 14).grid(row=0, column=5, padx=4, pady=4)
-styled_button(top_buttons, "Get Wi-Fi IP", get_device_ip, 14).grid(row=0, column=6, padx=4, pady=4)
-styled_button(top_buttons, "Clear Output", clear_output, 14).grid(row=0, column=7, padx=4, pady=4)
+styled_button(top_buttons, "Install ADB", install_adb, 14).grid(row=0, column=3, padx=4, pady=4)
+styled_button(top_buttons, "Update ADB", update_adb, 14).grid(row=0, column=4, padx=4, pady=4)
+styled_button(top_buttons, "Install APK", install_apk, 14).grid(row=0, column=5, padx=4, pady=4)
+styled_button(top_buttons, "Device Info", device_info, 14).grid(row=0, column=6, padx=4, pady=4)
+styled_button(top_buttons, "Get Wi-Fi IP", get_device_ip, 14).grid(row=0, column=7, padx=4, pady=4)
+styled_button(top_buttons, "Clear Output", clear_output, 14).grid(row=0, column=8, padx=4, pady=4)
 
 reboot_buttons = tk.Frame(root, bg=BG_COLOR)
 reboot_buttons.pack(fill="x", padx=10, pady=(0, 8))
