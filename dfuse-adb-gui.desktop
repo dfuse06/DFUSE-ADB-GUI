@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=dfuse ADB GUI
+Comment=ADB WiFi and Android utility GUI
+Exec=dfuse-adb-gui
+Icon=dfuse-adb-gui
+Terminal=false
+Categories=Development;Utility;
+StartupNotify=true

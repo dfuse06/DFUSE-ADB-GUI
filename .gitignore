@@ -1,13 +1,31 @@
 # Python
 __pycache__/
 *.pyc
+venv/
 
 # Build files
 build/
 dist/
-*.spec
+pkg/
+src/
+*.pkg.tar.zst
 
 # OS junk
 .DS_Store
+Thumbs.db
 
-# ADB binaries 
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# ADB binaries
+adb
+fastboot
+adb.exe
+fastboot.exe
+AdbWinApi.dll
+AdbWinUsbApi.dll
+
