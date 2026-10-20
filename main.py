@@ -597,8 +597,12 @@ class PairUsingCodeDialog:
 
 class PairUsingQrDialog:
     def __init__(self, parent):
+        from qr_pairing import credentials
+        import qrcode
+        from PIL import ImageTk
         self.parent = parent
-
+        self.cancelled = False
+        self.name, self.password, payload = credentials()
         self.top = tk.Toplevel(parent)
         self.top.title("Pair using QR")
         self.top.configure(bg=BG_COLOR)
@@ -606,97 +610,51 @@ class PairUsingQrDialog:
         self.top.transient(parent)
         self.top.grab_set()
 
-        self.build_ui()
-        self.center_window()
-
-    def build_ui(self):
         main = tk.Frame(self.top, bg=BG_COLOR, padx=24, pady=20)
         main.pack(fill="both", expand=True)
-
-        tk.Label(
-            main,
-            text="Pair device using QR",
-            bg=BG_COLOR,
-            fg=TEXT_COLOR,
-            font=("Arial", 18, "bold")
-        ).pack(anchor="w", pady=(0, 12))
-
-        tk.Label(
-            main,
-            text=(
-                "QR pairing UI is ready.\n\n"
-                "The actual Android wireless debugging QR backend\n"
-                "still needs to be implemented."
-            ),
-            bg=BG_COLOR,
-            fg=MUTED_TEXT,
-            justify="left"
-        ).pack(anchor="w", pady=(0, 14))
-
-        qr_frame = tk.Frame(
-            main,
-            bg="#0D0D0D",
-            bd=1,
-            relief="solid",
-            padx=20,
-            pady=20
-        )
-        qr_frame.pack(pady=(0, 16))
-
-        tk.Label(
-            qr_frame,
-            text="QR CODE\nCOMING NEXT",
-            bg="#0D0D0D",
-            fg=TEXT_COLOR,
-            font=("Arial", 18, "bold"),
-            justify="center",
-            width=18,
-            height=8
-        ).pack()
-
-        tk.Label(
-            main,
-            text=(
-                "Phone steps:\n"
-                "Developer options > Wireless debugging > Pair device with QR code\n"
-                "Then scan the QR shown here."
-            ),
-            bg=BG_COLOR,
-            fg=MUTED_TEXT,
-            justify="left"
-        ).pack(anchor="w", pady=(0, 18))
-
-        btn_row = tk.Frame(main, bg=BG_COLOR)
-        btn_row.pack(fill="x")
-
-        close_btn = tk.Button(
-            btn_row,
-            text="Close",
-            width=10,
-            command=self.close,
-            bg=BUTTON_COLOR,
-            fg=TEXT_COLOR,
-            activebackground=BUTTON_ACTIVE,
-            activeforeground=TEXT_COLOR,
-            relief="flat",
-            bd=0,
-            padx=8,
-            pady=6
-        )
-        close_btn.pack(side="right")
-
+        tk.Label(main, text="Pair device using QR", bg=BG_COLOR,
+                 fg=TEXT_COLOR, font=("Arial", 18, "bold")).pack(anchor="w", pady=(0, 12))
+        qr = qrcode.QRCode(border=4, box_size=8)
+        qr.add_data(payload)
+        qr.make(fit=True)
+        image = qr.make_image(fill_color="black", back_color="white").convert("RGB")
+        image.thumbnail((330, 330))
+        self.qr_photo = ImageTk.PhotoImage(image)
+        tk.Label(main, image=self.qr_photo, bg="white").pack(pady=(0, 14))
+        self.status = tk.StringVar(value="Waiting for phone to scan QR code…")
+        tk.Label(main, textvariable=self.status, bg=BG_COLOR, fg=TEXT_COLOR,
+                 wraplength=390, justify="left").pack(anchor="w", pady=(0, 12))
+        tk.Label(main, text="On phone: Developer options > Wireless debugging >\nPair device with QR code. Scan this QR on the same Wi-Fi.",
+                 bg=BG_COLOR, fg=MUTED_TEXT, justify="left").pack(anchor="w", pady=(0, 16))
+        tk.Button(main, text="Close", command=self.close, width=12,
+                  bg=BUTTON_COLOR, fg=TEXT_COLOR).pack(anchor="e")
         self.top.bind("<Escape>", lambda event: self.close())
         self.top.protocol("WM_DELETE_WINDOW", self.close)
-
-    def center_window(self):
         self.top.update_idletasks()
-        width = self.top.winfo_width()
-        height = self.top.winfo_height()
-        x = self.parent.winfo_rootx() + (self.parent.winfo_width() // 2) - (width // 2)
-        y = self.parent.winfo_rooty() + (self.parent.winfo_height() // 2) - (height // 2)
+        width, height = self.top.winfo_width(), self.top.winfo_height()
+        x = parent.winfo_rootx() + (parent.winfo_width() - width) // 2
+        y = parent.winfo_rooty() + (parent.winfo_height() - height) // 2
         self.top.geometry(f"+{x}+{y}")
+        threading.Thread(target=self.pair_worker, daemon=True).start()
+
+    def set_status(self, message):
+        if self.cancelled:
+            return
+        try:
+            self.top.after(0, lambda: self.status.set(message) if not self.cancelled else None)
+        except (RuntimeError, tk.TclError):
+            pass
+
+    def pair_worker(self):
+        from qr_pairing import wait_and_pair
+        try:
+            wait_and_pair(get_adb_path(), self.name, self.password,
+                          self.set_status, lambda: self.cancelled)
+        except Exception as exc:
+            self.set_status("QR pairing error: " + str(exc))
 
     def close(self):
+        self.cancelled = True
         self.top.destroy()
 
 
